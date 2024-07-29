@@ -110,21 +110,25 @@ while True:
 
 def scrape_proxy_links(link, proxy_type):
     global https_scraped, socks4_scraped, socks5_scraped
-    response = requests.get(link)
-    if response.status_code == 200:
-        with output_lock:
-            time_rn = get_time_rn()
-            print(f"[ {pink}{time_rn}{reset} ] | ( {green}SUCCESS{reset} ) {pretty}Scraped --> ", end='')
-            sys.stdout.flush()
-            Write.Print(link[:60] + "*******\n", Colors.purple_to_red, interval=0.000)
-        proxies = response.text.splitlines()
-        if proxy_type == "http":
-            https_scraped += len(proxies)
-        elif proxy_type == "socks4":
-            socks4_scraped += len(proxies)
-        elif proxy_type == "socks5":
-            socks5_scraped += len(proxies)
-        return proxies
+    try:
+        response = requests.get(link, timeout=10)
+        if response.status_code == 200:
+            with output_lock:
+                time_rn = get_time_rn()
+                print(f"[ {pink}{time_rn}{reset} ] | ( {green}SUCCESS{reset} ) {pretty}Scraped --> ", end='')
+                sys.stdout.flush()
+                Write.Print(link[:60] + "*******\n", Colors.purple_to_red, interval=0.000)
+            proxies = response.text.splitlines()
+            valid_proxies = [proxy for proxy in proxies if ":" in proxy and not any(c.isalpha() for c in proxy)]
+            if proxy_type == "http":
+                https_scraped += len(valid_proxies)
+            elif proxy_type == "socks4":
+                socks4_scraped += len(valid_proxies)
+            elif proxy_type == "socks5":
+                socks5_scraped += len(valid_proxies)
+            return valid_proxies
+    except requests.RequestException:
+        print(f"[ {pink}{get_time_rn()}{reset} ] | ( {red}ERROR{reset} ) Failed to scrape {link}")
     return []
 
 def scrape_and_save(links, proxy_type, filename):
@@ -134,23 +138,16 @@ def scrape_and_save(links, proxy_type, filename):
         for result in results:
             proxies.extend(result)
 
-    with open(filename, "w") as file:
+    # Ensure the Results directory exists
+    os.makedirs("Results", exist_ok=True)
+
+    with open(os.path.join("Results", filename), "w") as file:
         for proxy in proxies:
-            if ":" in proxy and not any(c.isalpha() for c in proxy):
-                file.write(proxy + '\n')
+            file.write(proxy + '\n')
 
-scrape_and_save(http_links, "http", "http_proxies.txt")
-scrape_and_save(socks4_list, "socks4", "socks4_proxies.txt")
-scrape_and_save(socks5_list, "socks5", "socks5_proxies.txt")
-
-time.sleep(1)
-nameFile = f"Results"
-if not os.path.exists(nameFile):
-    os.mkdir(nameFile)
-
-for file_type in ["http", "socks4", "socks5"]:
-    with open(f"Results/{file_type}.txt", "w") as f:
-        f.write("")
+scrape_and_save(http_links, "http", "http.txt")
+scrape_and_save(socks4_list, "socks4", "socks4.txt")
+scrape_and_save(socks5_list, "socks5", "socks5.txt")
 
 valid_http = []
 valid_socks4 = []
@@ -173,7 +170,7 @@ def check_proxy_http(proxy):
                 Write.Print(proxy + "\n", Colors.cyan_to_blue, interval=0.000)
             valid_http.append(proxy)
             http_checked += 1
-            with open(f"Results/http.txt", "a+") as f:
+            with open(os.path.join("Results", "http.txt"), "a+") as f:
                 f.write(proxy + "\n")
     except requests.exceptions.RequestException as e:
         pass
@@ -190,7 +187,7 @@ def checker_proxy_socks4(proxy):
             print(f"[ {pink}{time_rn}{reset} ] | ( {green}VALID{reset} ) {pretty}SOCKS4 --> ", end='')
             sys.stdout.flush()
             Write.Print(proxy + "\n", Colors.cyan_to_blue, interval=0.000)
-        with open("Results/socks4.txt", "a+") as f:
+        with open(os.path.join("Results", "socks4.txt"), "a+") as f:
             f.write(proxy + "\n")
     except (socks.ProxyConnectionError, socket.timeout, OSError):
         pass
@@ -207,7 +204,7 @@ def checker_proxy_socks5(proxy):
             print(f"[ {pink}{time_rn}{reset} ] | ( {green}VALID{reset} ) {pretty}SOCKS5 --> ", end='')
             sys.stdout.flush()
             Write.Print(proxy + "\n", Colors.cyan_to_blue, interval=0.000)
-        with open("Results/socks5.txt", "a+") as f:
+        with open(os.path.join("Results", "socks5.txt"), "a+") as f:
             f.write(proxy + "\n")
     except (socks.ProxyConnectionError, socket.timeout, OSError):
         pass
@@ -227,8 +224,9 @@ def check_all(proxy_type, pathTXT):
 def LetsCheckIt(proxy_types):
     threadsCrack = []
     for proxy_type in proxy_types:
-        if os.path.exists(f"{proxy_type}_proxies.txt"):
-            t = threading.Thread(target=check_all, args=(proxy_type, f"{proxy_type}_proxies.txt"))
+        file_path = os.path.join("Results", f"{proxy_type}.txt")
+        if os.path.exists(file_path):
+            t = threading.Thread(target=check_all, args=(proxy_type, file_path))
             t.start()
             threadsCrack.append(t)
     for t in threadsCrack:
@@ -236,9 +234,5 @@ def LetsCheckIt(proxy_types):
 
 proxy_types = ["http", "socks4", "socks5"]
 LetsCheckIt(proxy_types)
-
-for file in ["http_proxies.txt", "socks4_proxies.txt", "socks5_proxies.txt"]:
-    if os.path.exists(file):
-        os.remove(file)
 
 input("Tekan Enter untuk keluar...")
