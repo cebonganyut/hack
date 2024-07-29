@@ -5,7 +5,6 @@ import threading
 import random
 import string
 import json
-import ctypes
 import sys
 
 try:
@@ -58,22 +57,10 @@ def get_time_rn():
     timee = "{:02d}:{:02d}:{:02d}".format(hour, minute, second)
     return timee
 
-def update_title():
-    global https_scraped, socks4_scraped, socks5_scraped
-    ctypes.windll.kernel32.SetConsoleTitleW(f'insan1337 ❤️')
-
-def update_title2():
-    global http_checked, socks4_checked, socks5_checked
-    ctypes.windll.kernel32.SetConsoleTitleW(f'insan1337 ❤️')
-
 def ui():
-    ctypes.windll.kernel32.SetConsoleTitleW(f"insan1337 ❤️")
     System.Clear()
     Write.Print(f"""
-insan1337                                                                                  
-                                                                                  
-\t\t[ This tool is a scraper & checker for HTTP/s, SOCKS4, and SOCKS5 proxies. ]
-\t\t\t\t\t[ The Best Ever Not Gonna Lie ]                                                                          
+insan1337                                                                         
 """, Colors.red_to_blue, interval=0.000)
     time.sleep(3)
 
@@ -96,21 +83,18 @@ else:
         "https://api.proxyscrape.com/?request=getproxies&proxytype=https&timeout=10000&country=all&ssl=all&anonymity=all",
         "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
         "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-        # ... (tambahkan URL lainnya sesuai kebutuhan)
     ]
 
     socks4_list = [
         "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4",
         "https://api.proxyscrape.com/?request=displayproxies&proxytype=socks4&country=all",
         "https://api.openproxylist.xyz/socks4.txt",
-        # ... (tambahkan URL lainnya sesuai kebutuhan)
     ]
 
     socks5_list = [
         "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS5.txt",
         "https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/socks5.txt",
         "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
-        # ... (tambahkan URL lainnya sesuai kebutuhan)
     ]
 
 # Input untuk jumlah thread
@@ -140,7 +124,6 @@ def scrape_proxy_links(link, proxy_type):
             socks4_scraped += len(proxies)
         elif proxy_type == "socks5":
             socks5_scraped += len(proxies)
-        update_title()
         return proxies
     return []
 
@@ -190,7 +173,6 @@ def check_proxy_http(proxy):
                 Write.Print(proxy + "\n", Colors.cyan_to_blue, interval=0.000)
             valid_http.append(proxy)
             http_checked += 1
-            update_title2()
             with open(f"Results/http.txt", "a+") as f:
                 f.write(proxy + "\n")
     except requests.exceptions.RequestException as e:
@@ -203,7 +185,6 @@ def checker_proxy_socks4(proxy):
         socket.socket = socks.socksocket
         socket.create_connection(("www.google.com", 443), timeout=5)
         socks4_checked += 1
-        update_title2()
         with output_lock:
             time_rn = get_time_rn()
             print(f"[ {pink}{time_rn}{reset} ] | ( {green}VALID{reset} ) {pretty}SOCKS4 --> ", end='')
@@ -221,7 +202,6 @@ def checker_proxy_socks5(proxy):
         socket.socket = socks.socksocket
         socket.create_connection(("www.google.com", 443), timeout=5)
         socks5_checked += 1
-        update_title2()
         with output_lock:
             time_rn = get_time_rn()
             print(f"[ {pink}{time_rn}{reset} ] | ( {green}VALID{reset} ) {pretty}SOCKS5 --> ", end='')
