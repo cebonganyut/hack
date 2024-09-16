@@ -10,11 +10,11 @@ def resolve_domain(domain, results, lock):
     try:
         ip_address = socket.gethostbyname(domain)
         with lock:
-            results[domain] = ip_address
+            if ip_address:
+                results.add(ip_address)
             print(f"{domain} resolved to {ip_address}")
     except socket.gaierror as e:
         with lock:
-            results[domain] = None
             print(f"Failed to resolve {domain}: {e}")
 
 def worker(domain_queue, results, lock):
@@ -46,7 +46,7 @@ def main():
         return
 
     # Prepare to collect results
-    results = {}
+    results = set()  # Use a set to automatically handle duplicates
     domain_queue = Queue()
     lock = threading.Lock()
 
@@ -70,16 +70,13 @@ def main():
         t.join()
 
     # Save results to file
-    with open('IP_Results.txt', 'w', encoding='utf-8') as f:
-        for domain, ip in results.items():
-            if ip:
-                f.write(f"{domain}: {ip}\n")
-            else:
-                f.write(f"{domain}: Resolution failed\n")
+    with open('IPR.txt', 'w', encoding='utf-8') as f:
+        for ip in sorted(results):
+            f.write(f"{ip}\n")
 
     print(f"\nResolution completed.")
     print(f"Total domains processed: {len(domains)}")
-    print(f"Results saved to IP_Results.txt")
+    print(f"Unique IP addresses saved to IPR.txt")
 
 if __name__ == "__main__":
     main()
