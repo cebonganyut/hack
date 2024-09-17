@@ -115,7 +115,7 @@ try:
         
         '/wp-content/mah.php',
         
-        '//repeater.php
+        '//repeater.php',
         
         '/cgi-bin/class_api.php#888xyz999',
         
