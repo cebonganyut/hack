@@ -14,10 +14,10 @@ def check_file_exists(base_url, file_path, debug=False):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     try:
-        # Pertama, lakukan HEAD request
+        # First, do a HEAD request
         head_response = requests.head(full_url, allow_redirects=True, timeout=10, headers=headers)
         
-        # Jika HEAD request berhasil, lakukan GET request
+        # If HEAD request is successful, do a GET request
         if head_response.status_code == 200:
             response = requests.get(full_url, allow_redirects=True, timeout=10, headers=headers)
             
@@ -27,28 +27,27 @@ def check_file_exists(base_url, file_path, debug=False):
                 
                 if any(pattern in content for pattern in error_patterns):
                     if debug:
-                        print(f"Debug: Error pattern found in content")
+                        print(full_url)
                     return "Not Found", full_url
                 
                 content_type = response.headers.get('Content-Type', '').lower()
                 expected_type = get_expected_content_type(file_path)
                 if expected_type and expected_type not in content_type:
                     if debug:
-                        print(f"Debug: Content-Type mismatch. Expected: {expected_type}, Got: {content_type}")
-                    # Tetap lanjutkan, jangan return di sini
+                        print(full_url)
                 
                 return "Found", full_url
             else:
                 if debug:
-                    print(f"Debug: GET request failed with status code {response.status_code}")
+                    print(full_url)
                 return "Not Found", full_url
         else:
             if debug:
-                print(f"Debug: HEAD request failed with status code {head_response.status_code}")
+                print(full_url)
             return "Not Found", full_url
     except requests.RequestException as e:
         if debug:
-            print(f"Debug: Request exception: {str(e)}")
+            print(full_url)
         return "Not Found", full_url
 
 def get_expected_content_type(file_path):
@@ -68,7 +67,7 @@ def process_single_url(url, paths, num_threads):
     found_files = []
     
     def check_path(path):
-        status, full_url = check_file_exists(url, path, debug=True)  # Aktifkan mode debug
+        status, full_url = check_file_exists(url, path, debug=True)  # Debug mode activated
         if status == "Found":
             print(f"{Fore.GREEN}[Found] {full_url}{Style.RESET_ALL}")
             return full_url
