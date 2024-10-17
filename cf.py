@@ -1,15 +1,10 @@
 import requests
 from urllib.parse import urljoin
 import concurrent.futures
-import re
-import hashlib
 from colorama import init, Fore, Style
 
 # Initialize colorama
 init(autoreset=True)
-
-def get_file_signature(content):
-    return hashlib.md5(content[:1024]).hexdigest()
 
 def check_file_exists(base_url, file_path):
     if not base_url.endswith('/'):
@@ -21,46 +16,34 @@ def check_file_exists(base_url, file_path):
     }
 
     try:
-        # Step 1: Try GET request (skip HEAD for more accuracy)
         response = requests.get(full_url, allow_redirects=True, timeout=10, headers=headers)
         
-        # Check status code
         if response.status_code == 200:
-            content = response.content
-            text = response.text.lower()
+            content = response.text.lower()
 
-            # Step 2: Analyze content for common error patterns
             error_patterns = ['not found', 'error 404', 'file not found', 'page not found']
-            if any(pattern in text for pattern in error_patterns):
-                return "Not Found (Error Page)", None, None
+            if any(pattern in content for pattern in error_patterns):
+                return "Not Found", full_url
 
-            # Step 3: Check content length and type
-            if len(content) < 100:  # Arbitrary small size, adjust as needed
-                return "Suspicious (Small Content)", None, None
+            if len(content) < 100:
+                return "Not Found", full_url
 
-            # Step 4: Check content type
             content_type = response.headers.get('Content-Type', '').lower()
             expected_type = get_expected_content_type(file_path)
             if expected_type and expected_type not in content_type:
-                return f"Suspicious (Unexpected Content-Type: {content_type})", None, None
+                return "Not Found", full_url
 
-            # Step 5: Additional checks for specific file types
             if file_path.endswith('.php'):
-                if '<?php' not in text:
-                    return "Suspicious (No PHP code found)", None, None
+                if '<?php' not in content:
+                    return "Not Found", full_url
 
-            # If all checks pass, consider the file found
-            return "Found", full_url, get_file_signature(content)
+            return "Found", full_url
 
-        elif response.status_code == 403:
-            return "Access Forbidden", None, None
-        elif response.status_code == 404:
-            return "Not Found", None, None
         else:
-            return f"Not Found (Status {response.status_code})", None, None
+            return "Not Found", full_url
 
-    except requests.RequestException as e:
-        return f"Error: {str(e)}", None, None
+    except requests.RequestException:
+        return "Not Found", full_url
 
 def get_expected_content_type(file_path):
     extension = file_path.split('.')[-1].lower()
@@ -79,12 +62,12 @@ def process_single_url(url, paths, num_threads):
     found_files = []
     
     def check_path(path):
-        result = check_file_exists(url, path)
-        if result[0] == "Found":
-            print(f"{Fore.GREEN}{result[0]}: {result[1]}{Style.RESET_ALL}")
-            return result
+        status, full_url = check_file_exists(url, path)
+        if status == "Found":
+            print(f"{Fore.GREEN}[Found] {full_url}{Style.RESET_ALL}")
+            return full_url
         else:
-            print(f"{Fore.RED}{result[0]}: {path}{Style.RESET_ALL}")
+            print(f"{Fore.RED}[Not Found] {full_url}{Style.RESET_ALL}")
         return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
@@ -97,17 +80,14 @@ def process_single_url(url, paths, num_threads):
     return found_files
 
 def main():
-    # Input for URLs
     urls_input = input("Enter path to a file containing URLs: ").strip()
     with open(urls_input, 'r') as file:
         urls = [line.strip() for line in file if line.strip()]
 
-    # Input for paths
     paths_input = input("Enter path to a file containing file paths to check: ").strip()
     with open(paths_input, 'r') as file:
         paths = [line.strip() for line in file if line.strip()]
 
-    # Input for number of threads
     while True:
         try:
             num_threads = int(input("Enter the number of threads to use for each website (1-100): "))
@@ -120,17 +100,15 @@ def main():
 
     all_found_files = []
 
-    # Process URLs sequentially
     for url in urls:
         print(f"\nProcessing {url}...")
         found_files = process_single_url(url, paths, num_threads)
         all_found_files.extend(found_files)
         print(f"Completed checking {url}. Found {len(found_files)} files.")
 
-    # Save found files to txt with additional information
     with open('found_files.txt', 'w') as file:
-        for status, full_url, signature in all_found_files:
-            file.write(f"{full_url} | {signature}\n")
+        for full_url in all_found_files:
+            file.write(f"{full_url}\n")
 
     print(f"\nAll found files saved to 'found_files.txt'")
     print(f"Total files found: {len(all_found_files)}")
