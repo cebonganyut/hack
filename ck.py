@@ -6,7 +6,7 @@ from colorama import init, Fore, Style
 # Initialize colorama
 init(autoreset=True)
 
-def check_file_exists(base_url, file_path):
+def check_file_exists(base_url, file_path, debug=False):
     if not base_url.endswith('/'):
         base_url += '/'
     full_url = urljoin(base_url, file_path)
@@ -14,8 +14,10 @@ def check_file_exists(base_url, file_path):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     try:
+        # First, do a HEAD request
         head_response = requests.head(full_url, allow_redirects=True, timeout=10, headers=headers)
         
+        # If HEAD request is successful, do a GET request
         if head_response.status_code == 200:
             response = requests.get(full_url, allow_redirects=True, timeout=10, headers=headers)
             
@@ -24,20 +26,29 @@ def check_file_exists(base_url, file_path):
                 error_patterns = ['not found', 'error 404', 'file not found', 'page not found', 'tidak ditemukan', 'error 403', 'forbidden']
                 
                 if any(pattern in content for pattern in error_patterns):
-                    return False, full_url
+                    if debug:
+                        print(full_url)
+                    return "Not Found", full_url
                 
                 content_type = response.headers.get('Content-Type', '').lower()
                 expected_type = get_expected_content_type(file_path)
                 if expected_type and expected_type not in content_type:
-                    return False, full_url
+                    if debug:
+                        print(full_url)
                 
-                return True, full_url
+                return "Found", full_url
             else:
-                return False, full_url
+                if debug:
+                    print(full_url)
+                return "Not Found", full_url
         else:
-            return False, full_url
-    except requests.RequestException:
-        return False, full_url
+            if debug:
+                print(full_url)
+            return "Not Found", full_url
+    except requests.RequestException as e:
+        if debug:
+            print(full_url)
+        return "Not Found", full_url
 
 def get_expected_content_type(file_path):
     extension = file_path.split('.')[-1].lower()
@@ -56,20 +67,20 @@ def process_single_url(url, paths, num_threads):
     found_files = []
     
     def check_path(path):
-        found, full_url = check_file_exists(url, path)
-        return found, full_url
+        status, full_url = check_file_exists(url, path, debug=True)  # Debug mode activated
+        if status == "Found":
+            print(f"{Fore.GREEN}[Found] {full_url}{Style.RESET_ALL}")
+            return full_url
+        else:
+            print(f"{Fore.RED}[Not Found] {full_url}{Style.RESET_ALL}")
+        return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         future_to_path = {executor.submit(check_path, path): path for path in paths}
         for future in concurrent.futures.as_completed(future_to_path):
-            found, full_url = future.result()
-            if found:
-                found_files.append(full_url)
-    
-    if found_files:
-        print(f"{Fore.GREEN}[Found] {url}{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.RED}[Not Found] {url}{Style.RESET_ALL}")
+            result = future.result()
+            if result:
+                found_files.append(result)
     
     return found_files
 
@@ -94,8 +105,10 @@ def main():
 
     all_found_files = []
     for url in urls:
+        print(f"\nProcessing {url}...")
         found_files = process_single_url(url, paths, num_threads)
         all_found_files.extend(found_files)
+        print(f"Completed checking {url}. Found {len(found_files)} files.")
 
     with open('found_files.txt', 'w') as file:
         for full_url in all_found_files:
