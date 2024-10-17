@@ -6,43 +6,49 @@ from colorama import init, Fore, Style
 # Initialize colorama
 init(autoreset=True)
 
-def check_file_exists(base_url, file_path):
+def check_file_exists(base_url, file_path, debug=False):
     if not base_url.endswith('/'):
         base_url += '/'
     full_url = urljoin(base_url, file_path)
-
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
-
     try:
-        response = requests.get(full_url, allow_redirects=True, timeout=10, headers=headers)
+        # Pertama, lakukan HEAD request
+        head_response = requests.head(full_url, allow_redirects=True, timeout=10, headers=headers)
         
-        if response.status_code == 200:
-            content = response.text.lower()
-
-            error_patterns = ['not found', 'error 404', 'file not found', 'page not found']
-            if any(pattern in content for pattern in error_patterns):
-                return "Not Found", full_url
-
-            if len(content) < 100:
-                return "Not Found", full_url
-
-            content_type = response.headers.get('Content-Type', '').lower()
-            expected_type = get_expected_content_type(file_path)
-            if expected_type and expected_type not in content_type:
-                return "Not Found", full_url
-
-            if file_path.endswith('.php'):
-                if '<?php' not in content:
+        # Jika HEAD request berhasil, lakukan GET request
+        if head_response.status_code == 200:
+            response = requests.get(full_url, allow_redirects=True, timeout=10, headers=headers)
+            
+            if response.status_code == 200:
+                content = response.text.lower()
+                error_patterns = ['not found', 'error 404', 'file not found', 'page not found', 'tidak ditemukan', 'error 403', 'forbidden']
+                
+                if any(pattern in content for pattern in error_patterns):
+                    if debug:
+                        print(f"Debug: Error pattern found in content")
                     return "Not Found", full_url
-
-            return "Found", full_url
-
+                
+                content_type = response.headers.get('Content-Type', '').lower()
+                expected_type = get_expected_content_type(file_path)
+                if expected_type and expected_type not in content_type:
+                    if debug:
+                        print(f"Debug: Content-Type mismatch. Expected: {expected_type}, Got: {content_type}")
+                    # Tetap lanjutkan, jangan return di sini
+                
+                return "Found", full_url
+            else:
+                if debug:
+                    print(f"Debug: GET request failed with status code {response.status_code}")
+                return "Not Found", full_url
         else:
+            if debug:
+                print(f"Debug: HEAD request failed with status code {head_response.status_code}")
             return "Not Found", full_url
-
-    except requests.RequestException:
+    except requests.RequestException as e:
+        if debug:
+            print(f"Debug: Request exception: {str(e)}")
         return "Not Found", full_url
 
 def get_expected_content_type(file_path):
@@ -62,7 +68,7 @@ def process_single_url(url, paths, num_threads):
     found_files = []
     
     def check_path(path):
-        status, full_url = check_file_exists(url, path)
+        status, full_url = check_file_exists(url, path, debug=True)  # Aktifkan mode debug
         if status == "Found":
             print(f"{Fore.GREEN}[Found] {full_url}{Style.RESET_ALL}")
             return full_url
@@ -99,7 +105,6 @@ def main():
             print("Please enter a valid number.")
 
     all_found_files = []
-
     for url in urls:
         print(f"\nProcessing {url}...")
         found_files = process_single_url(url, paths, num_threads)
