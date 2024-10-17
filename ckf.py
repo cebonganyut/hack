@@ -3,6 +3,10 @@ from urllib.parse import urljoin
 import concurrent.futures
 import re
 import hashlib
+from colorama import init, Fore, Style
+
+# Initialize colorama
+init(autoreset=True)
 
 def get_file_signature(content):
     return hashlib.md5(content[:1024]).hexdigest()
@@ -28,35 +32,35 @@ def check_file_exists(base_url, file_path):
             # Step 2: Analyze content for common error patterns
             error_patterns = ['not found', 'error 404', 'file not found', 'page not found']
             if any(pattern in text for pattern in error_patterns):
-                return "Not Found (Error Page)", None
+                return "Not Found (Error Page)", None, None
 
             # Step 3: Check content length and type
             if len(content) < 100:  # Arbitrary small size, adjust as needed
-                return "Suspicious (Small Content)", None
+                return "Suspicious (Small Content)", None, None
 
             # Step 4: Check content type
             content_type = response.headers.get('Content-Type', '').lower()
             expected_type = get_expected_content_type(file_path)
             if expected_type and expected_type not in content_type:
-                return f"Suspicious (Unexpected Content-Type: {content_type})", None
+                return f"Suspicious (Unexpected Content-Type: {content_type})", None, None
 
             # Step 5: Additional checks for specific file types
             if file_path.endswith('.php'):
                 if '<?php' not in text:
-                    return "Suspicious (No PHP code found)", None
+                    return "Suspicious (No PHP code found)", None, None
 
             # If all checks pass, consider the file found
             return "Found", full_url, get_file_signature(content)
 
         elif response.status_code == 403:
-            return "Access Forbidden", None
+            return "Access Forbidden", None, None
         elif response.status_code == 404:
-            return "Not Found", None
+            return "Not Found", None, None
         else:
-            return f"Not Found (Status {response.status_code})", None
+            return f"Not Found (Status {response.status_code})", None, None
 
     except requests.RequestException as e:
-        return f"Error: {str(e)}", None
+        return f"Error: {str(e)}", None, None
 
 def get_expected_content_type(file_path):
     extension = file_path.split('.')[-1].lower()
@@ -77,7 +81,10 @@ def process_single_url(url, paths, num_threads):
     def check_path(path):
         result = check_file_exists(url, path)
         if result[0] == "Found":
+            print(f"{Fore.GREEN}{result[0]}: {result[1]}{Style.RESET_ALL}")
             return result
+        else:
+            print(f"{Fore.RED}{result[0]}: {path}{Style.RESET_ALL}")
         return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
